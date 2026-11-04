@@ -82,3 +82,42 @@ export function renderTracker(host, view, P, mode) {
 }
 
 const pct = (p) => Math.round(p * 100) + '%';
+
+const SEAT_LABEL = ['Вы', 'Соперник слева', 'Партнёр', 'Соперник справа'];
+
+/** Endgame box: structure (what keeps the hand alive) + Monte-Carlo forecast (fish vs out). */
+export function renderForecast(host, view, info, fc) {
+  host.replaceChildren();
+  host.append(el('div', 'tr-title', `Концовка: осталось ${info.tilesLeft} камней — рыба или выход?`));
+  const [l, r] = info.ends;
+  const note = (e, k) => `конец ${e}: не видно ещё ${info.endUnseen[k]} шт`;
+  const sealed = [];
+  for (let n = 0; n <= 6; n++) if (info.sealed[n]) sealed.push(n);
+  const lines = el('div', 'fc-lines');
+  lines.append(el('p', '', `${note(l, 0)}; ${l === r ? 'тот же конец' : note(r, 1)}.`));
+  if (sealed.length) lines.append(el('p', '', `У соперников и партнёра нет чисел: ${sealed.join(', ')} — их держите только вы.`));
+  if (info.othersStuck) lines.append(el('p', 'fc-hot', 'На обоих концах чужих камней уже нет — партнёр и соперники не смогут сыграть, ход за вами.'));
+  host.append(lines);
+  if (!fc) {
+    host.append(el('p', 'dim', 'Считаю прогноз…'));
+    return;
+  }
+  const bar = el('div', 'fc-bar');
+  const seg = (cls, v, txt) => {
+    const e = el('i', cls, v >= 0.09 ? txt : '');
+    e.style.flexGrow = String(Math.max(v, 0.0001));
+    e.title = txt;
+    return e;
+  };
+  bar.append(seg('fc-fish', fc.fish, `рыба ${pct(fc.fish)}`), seg('fc-out', fc.out, `выход ${pct(fc.out)}`));
+  host.append(bar);
+  const who = [0, 1, 2, 3]
+    .filter((q) => fc.outBy[q] >= 0.03)
+    .sort((a, b) => fc.outBy[b] - fc.outBy[a])
+    .map((q) => `${SEAT_LABEL[q]} ${pct(fc.outBy[q])}`);
+  host.append(el('p', '', `Рыба — ${pct(fc.fish)}, кто-то выходит — ${pct(fc.out)}${who.length ? ' (' + who.join(', ') + ')' : ''}.`));
+  host.append(
+    el('p', '', `Очки за раздачу: ваша пара берёт ${pct(fc.win)}, соперники ${pct(fc.lose)}, ничья ${pct(fc.tie)}; в среднем ${fc.avg > 0 ? '+' : ''}${fc.avg.toFixed(1)}.`),
+  );
+  host.append(el('p', 'dim', `Оценка по ${fc.n} вероятным раскладам.`));
+}

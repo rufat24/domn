@@ -142,3 +142,12 @@ input[type=checkbox] { width: 22px; height: 22px; }
   .mcell { font-size: .62rem; min-height: 38px; }
   .stat { margin-left: 0; width: 100%; }
 }
+
+/* endgame forecast */
+.forecast { border-bottom: 1px solid rgba(255,255,255,.15); padding-bottom: 8px; margin-bottom: 6px; }
+.forecast .fc-lines p, .forecast > p { margin: 3px 0; }
+.fc-hot { color: var(--accent); font-weight: 600; }
+.fc-bar { display: flex; height: 22px; border-radius: 6px; overflow: hidden; margin: 6px 0; background: rgba(0,0,0,.25); }
+.fc-bar i { display: flex; align-items: center; justify-content: center; font-style: normal; font-size: 12px; white-space: nowrap; overflow: hidden; }
+.fc-fish { background: #b9852b; color: #fff; }
+.fc-out { background: #2f8f5a; color: #fff; }

@@ -4,11 +4,12 @@ import { TILES, TA, TB, PIPS, popcount, maskToIds, tileName } from '../engine/ti
 import { handPips } from '../engine/game.js';
 import { makeView } from '../ai/belief.js';
 import { LEVELS } from '../ai/pimc.js';
-import { aiChoose, aiProbs } from '../ai/client.js';
+import { aiChoose, aiProbs, aiEndgame } from '../ai/client.js';
+import { closureInfo, tilesLeft } from '../ai/endgame.js';
 import { explainChoice } from '../ai/explain.js';
 import { el, tileById, tileBack } from './tile.js';
 import { renderBoard } from './board.js';
-import { renderTracker } from './tracker.js';
+import { renderTracker, renderForecast } from './tracker.js';
 import { load, save } from './storage.js';
 
 const NAMES = ['Вы', 'Слева', 'Партнёр', 'Справа'];
@@ -48,6 +49,7 @@ export function mountPlay(root, settings) {
     G.hint = null;
     G.logIdx = 0;
     G.probs = null;
+    G.fc = null;
     $('resultbox').classList.add('hidden');
     $('hintbox').classList.add('hidden');
     const lead = G.s.leader;
@@ -284,6 +286,28 @@ export function mountPlay(root, settings) {
       G.probs = { view: key, P };
       renderTracker(box, view, P, 'full');
     }
+    await refreshForecast(view);
+  }
+
+  async function refreshForecast(view) {
+    const box = $('trackerbox');
+    if (!view.ends || tilesLeft(view) > 14 || G.s.over) return;
+    let host = box.querySelector('.forecast');
+    if (!host) {
+      host = el('div', 'forecast');
+      box.prepend(host);
+    }
+    const info = closureInfo(view);
+    const key = G.s.played + ':' + G.s.turn;
+    const tok = G.token;
+    if (!G.fc || G.fc.key !== key) renderForecast(host, view, info, null);
+    else renderForecast(host, view, info, G.fc.fc);
+    if (G.fc && G.fc.key === key) return;
+    const fc = await aiEndgame(view, 500);
+    if (tok !== G.token) return;
+    G.fc = { key, fc };
+    const h2 = box.querySelector('.forecast');
+    if (h2) renderForecast(h2, view, info, fc);
   }
 
   // ----------------------------------------------------------------- result + review

@@ -105,3 +105,29 @@ test('rollout policy never reads other hands: policy depends only on own hand + 
   });
   assert.deepEqual(policyMove(c, seat, makeRng(1), 0), m1);
 });
+
+test('endgame forecast: probabilities are consistent and well calibrated on average', async () => {
+  const { endgameForecast, tilesLeft, closureInfo } = await import('../src/ai/endgame.js');
+  const { policyMove } = await import('../src/ai/policy.js');
+  const { makeView } = await import('../src/ai/belief.js');
+  const { deal, newHand, applyMove } = await import('../src/engine/game.js');
+  const rng = makeRng(3);
+  let pred = 0, real = 0, cnt = 0;
+  for (let g = 0; g < 120; g++) {
+    const s = newHand({}, deal(rng), rng.int(4));
+    let cap = null;
+    while (!s.over) {
+      if (!cap && s.ends && tilesLeft(makeView(s, 0)) <= 10) cap = makeView(s, 0);
+      applyMove(s, policyMove(s, s.turn, rng, 0.04));
+    }
+    if (!cap) continue;
+    const f = endgameForecast(cap, rng, 60);
+    assert.ok(Math.abs(f.fish + f.out - 1) < 1e-9);
+    assert.ok(Math.abs(f.outBy.reduce((a, b) => a + b, 0) - f.out) < 1e-9);
+    assert.ok(Math.abs(f.win + f.lose + f.tie - 1) < 1e-9);
+    const ci = closureInfo(cap);
+    assert.equal(ci.tilesLeft, tilesLeft(cap));
+    pred += f.fish; real += s.result.kind === 'fish' ? 1 : 0; cnt++;
+  }
+  assert.ok(Math.abs(pred / cnt - real / cnt) < 0.1, `pred ${pred / cnt} vs real ${real / cnt}`);
+});

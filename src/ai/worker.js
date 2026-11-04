@@ -2,6 +2,7 @@
 import { makeRng } from '../engine/tiles.js';
 import { chooseMove } from './pimc.js';
 import { tileProbabilities } from './belief.js';
+import { endgameForecast } from './endgame.js';
 
 self.onmessage = (e) => {
   const { id, type, view, level, seed, n, opts } = e.data;
@@ -9,6 +10,7 @@ self.onmessage = (e) => {
     const rng = makeRng(seed ?? (Math.random() * 2 ** 32) >>> 0);
     let out;
     if (type === 'choose') out = chooseMove(view, { level, rng, ...(opts || {}) });
+    else if (type === 'endgame') out = endgameForecast(view, rng, n || 400);
     else if (type === 'probs') out = tileProbabilities(view, rng, n || 1000);
     self.postMessage({ id, ok: true, out });
   } catch (err) {

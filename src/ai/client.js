@@ -2,6 +2,7 @@
 import { makeRng } from '../engine/tiles.js';
 import { chooseMove } from './pimc.js';
 import { tileProbabilities } from './belief.js';
+import { endgameForecast } from './endgame.js';
 
 let worker = null;
 let failed = false;
@@ -44,3 +45,5 @@ export const aiChoose = (view, level, opts = {}) =>
   call('choose', { view, level, opts }, () => chooseMove(view, { level, rng: makeRng((Math.random() * 2 ** 32) >>> 0), ...opts }));
 export const aiProbs = (view, n = 900) =>
   call('probs', { view, n }, () => tileProbabilities(view, makeRng((Math.random() * 2 ** 32) >>> 0), n));
+export const aiEndgame = (view, n = 400) =>
+  call('endgame', { view, n }, () => endgameForecast(view, makeRng((Math.random() * 2 ** 32) >>> 0), n));
