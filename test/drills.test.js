@@ -3,7 +3,7 @@ import assert from 'node:assert/strict';
 import { makeRng, popcount } from '../src/engine/tiles.js';
 import { cloneState, applyMove, legalMoves } from '../src/engine/game.js';
 import { DEFAULT_RULES } from '../src/engine/rules.js';
-import { genCount, genVoid, genRead, genFish, genScore, genBest, playUntil, afterMove } from '../src/ai/drillgen.js';
+import { LEVELS, genCount, genVoid, genRead, genFish, genScore, genBest, playUntil, afterMove } from '../src/ai/drillgen.js';
 
 const R = DEFAULT_RULES;
 
@@ -79,4 +79,34 @@ test('best-move drill: unique best by a margin', () => {
     assert.ok(q.vals[0].v - q.vals[1].v >= 5);
   }
   assert.ok(Date.now() - t0 < 20000, 'generation is fast enough');
+});
+
+test('every level of every generator yields a valid question', () => {
+  const rng = makeRng(21);
+  for (const lv of LEVELS) {
+    for (let i = 0; i < 8; i++) {
+      const c = genCount(rng, R, lv);
+      assert.equal(c.answer, 7 - c.onTable - c.mine);
+      assert.ok(genVoid(rng, R, lv).voidNums.length > 0);
+      assert.equal(genRead(rng, R, lv).truth, true);
+      assert.ok(genFish(rng, R, lv));
+    }
+    assert.equal(genScore(rng, R, lv).result.kind, 'fish');
+    const b = genBest(rng, R, lv);
+    assert.ok(b.vals[0].v - b.vals[1].v >= { easy: 15, medium: 5, hard: 2 }[lv]);
+  }
+});
+
+test('levels really differ: count table size, fish near-misses, close scores', () => {
+  const rng = makeRng(22);
+  const avg = (lv) => { let t = 0; for (let i = 0; i < 40; i++) t += popcount(genCount(rng, R, lv).t.played); return t / 40; };
+  assert.ok(avg('easy') < avg('hard'));
+  for (let i = 0; i < 20; i++) {
+    const q = genFish(rng, R, 'hard');
+    if (!q.answer) assert.equal(q.after.ends[0], q.after.ends[1]);
+  }
+  for (let i = 0; i < 10; i++) {
+    const r = genScore(rng, R, 'hard').result.pips;
+    assert.ok(Math.abs(Math.min(r[0], r[2]) - Math.min(r[1], r[3])) <= 4);
+  }
 });

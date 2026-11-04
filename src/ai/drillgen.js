@@ -27,6 +27,9 @@ export function playUntil(rng, rulesIn, stop, eps = 0.08) {
   return stop(s) ? s : null;
 }
 
+export const LEVELS = ['easy', 'medium', 'hard'];
+export const LEVEL_NAMES = { easy: 'Лёгкий', medium: 'Средний', hard: 'Сложный' };
+
 function retry(maker, tries = 400) {
   for (let i = 0; i < tries; i++) {
     const q = maker();
@@ -49,9 +52,12 @@ function table(s) {
 }
 
 /** 1) How many tiles with number n are still unseen (not on the table, not in your hand)? */
-export function genCount(rng, rules) {
+export function genCount(rng, rules, level = 'medium') {
+  // easy: few tiles on the table; hard: a long chain to track
+  const base = { easy: 5, medium: 6, hard: 15 }[level] ?? 6;
+  const span = { easy: 6, medium: 10, hard: 9 }[level] ?? 10;
   return retry(() => {
-    const lo = 6 + rng.int(10);
+    const lo = base + rng.int(span);
     const s = playUntil(rng, rules, (x) => popcount(x.played) >= lo);
     if (!s) return null;
     const n = rng.int(7);
@@ -61,9 +67,18 @@ export function genCount(rng, rules) {
 }
 
 /** 2) Can seat q still hold tile T, given that q passed? */
-export function genVoid(rng, rules) {
+export function genVoid(rng, rules, level = 'medium') {
+  // easy: one passing player, one number; hard: three or more passes spread around the table
+  const nPass = (x) => x.log.filter((e) => e.type === 'pass').length;
+  const voidNums = (x) => [1, 2, 3].reduce((n, q) => n + popcount(x.voids[q]), 0);
+  const ok = (x) => {
+    if (popcount(x.played) < 8 || (x.voids[1] | x.voids[2] | x.voids[3]) === 0) return false;
+    if (level === 'easy') return nPass(x) <= 2 && voidNums(x) <= 2;
+    if (level === 'hard') return nPass(x) >= 4 && voidNums(x) >= 4;
+    return true;
+  };
   return retry(() => {
-    const s = playUntil(rng, rules, (x) => popcount(x.played) >= 8 && (x.voids[1] | x.voids[2] | x.voids[3]) !== 0);
+    const s = playUntil(rng, rules, ok);
     if (!s) return null;
     const qs = [1, 2, 3].filter((q) => s.voids[q]);
     const q = qs[rng.int(qs.length)];
@@ -78,10 +93,12 @@ export function genVoid(rng, rules) {
 }
 
 /** 3) Which seat is the only one that can hold tile T? (pure deduction from passes) */
-export function genRead(rng, rules) {
+export function genRead(rng, rules, level = 'medium') {
+  // easy: a few passes, every excluded seat is excluded by a single clear pass; hard: many passes to combine
+  const nPass = (x) => x.log.filter((e) => e.type === 'pass').length;
   return retry(() => {
     const lo = 12 + rng.int(8);
-    const s = playUntil(rng, rules, (x) => popcount(x.played) >= lo);
+    const s = playUntil(rng, rules, (x) => popcount(x.played) >= lo && (level === 'easy' ? nPass(x) <= 3 : level === 'hard' ? nPass(x) >= 5 : true));
     if (!s) return null;
     const view = makeView(s, 0);
     const { allowed } = possibleHolders(view);
@@ -93,6 +110,7 @@ export function genRead(rng, rules) {
     }
     if (!cands.length) return null;
     const c = cands[rng.int(cands.length)];
+    if (level === 'easy' && [1, 2, 3].some((q) => q !== c.seat && popcount(s.voids[q] & numMask(c.id)) > 1)) return null;
     const why = [1, 2, 3].filter((q) => q !== c.seat).map((q) => ({ q, nums: [TA[c.id], TB[c.id]].filter((n, i, a) => a.indexOf(n) === i && s.voids[q] & (1 << n)) }));
     return { kind: 'read', t: table(s), id: c.id, answer: c.seat, why, truth: s.hands[c.seat] & (1 << c.id) ? true : false };
   });
@@ -112,7 +130,7 @@ export function afterMove(s, seat, move) {
 }
 
 /** 4) After your move: fish (nobody can play) or does the game go on? */
-export function genFish(rng, rules) {
+export function genFish(rng, rules, level = 'medium') {
   const wantFish = rng() < 0.5;
   const found = (tight) => {
     for (let r = 0; r < 500; r++) {
@@ -122,7 +140,10 @@ export function genFish(rng, rules) {
         const opts = [];
         for (const m of legalMoves(x, 0)) {
           const a = afterMove(x, 0, m);
-          if (a.fish === wantFish && (wantFish || !tight || a.left + a.right <= 2)) opts.push({ m, a });
+          const left = a.left + a.right;
+          // easy: fish is obvious / a non-fish leaves plenty of tiles (4+); hard: a non-fish that looks like a fish (same number on both ends, one tile still in play)
+          const fits = level === 'easy' ? wantFish || left >= 4 : level === 'hard' ? wantFish || (a.ends[0] === a.ends[1] && left <= 2) : !tight || left <= 2;
+          if (a.fish === wantFish && (wantFish || fits)) opts.push({ m, a });
         }
         if (!opts.length) return false;
         cand = opts[rng.int(opts.length)];
@@ -132,11 +153,11 @@ export function genFish(rng, rules) {
     }
     return null;
   };
-  return found(true) || found(false);
+  return found(true) || (level === 'medium' ? found(false) : null) || found(false);
 }
 
 /** 5) Blocked game: whose pair wins and how many points? */
-export function genScore(rng, rules) {
+export function genScore(rng, rules, level = 'medium') {
   return retry(() => {
     const hands = deal(rng);
     const one = ID_OF[1][1];
@@ -144,14 +165,22 @@ export function genScore(rng, rules) {
     let g = 0;
     while (!s.over && g++ < 80) applyMove(s, policyMove(s, s.turn, rng, 0.08));
     if (!s.over || s.result.kind !== 'fish') return null;
+    // gap between the best hands of the two pairs: big = obvious winner, small = close call
+    const hp = s.result.pips;
+    const gap = Math.abs(Math.min(hp[0], hp[2]) - Math.min(hp[1], hp[3]));
+    if (level === 'easy' && (gap < 10 || s.result.team < 0)) return null;
+    if (level === 'hard' && (gap > 4 || s.result.team < 0)) return null;
     return { kind: 'score', hands: s.hands.slice(), ends: s.ends.slice(), chain: s.chain.map((c) => ({ a: c.a, b: c.b, player: c.player })), result: s.result, rules: s.rules };
   }, 2000);
 }
 
 /** 6) All hands open, <= 8 tiles: which move is best (exact search)? */
-export function genBest(rng, rules) {
+export function genBest(rng, rules, level = 'medium') {
+  const margin = { easy: 15, medium: 5, hard: 2 }[level] ?? 5;
+  const hMin = level === 'easy' ? 5 : 6;
+  const hMax = level === 'easy' ? 6 : 8;
   return retry(() => {
-    const s = playUntil(rng, rules, (x) => !x.over && x.turn === 0 && handCount(x) <= 8 && handCount(x) >= 6 && legalMoves(x, 0).length >= 2, 0.05);
+    const s = playUntil(rng, rules, (x) => !x.over && x.turn === 0 && handCount(x) <= hMax && handCount(x) >= hMin && legalMoves(x, 0).length >= 2, 0.05);
     if (!s) return null;
     const vals = [];
     for (const m of legalMoves(s, 0)) {
@@ -166,7 +195,7 @@ export function genBest(rng, rules) {
       vals.push({ move: m, v });
     }
     vals.sort((a, b) => b.v - a.v);
-    if (vals[0].v - vals[1].v < 5) return null;
+    if (vals[0].v - vals[1].v < margin) return null;
     return { kind: 'best', t: table(s), hands: s.hands.slice(), ends: s.ends.slice(), vals, answer: vals[0].move };
   }, 600);
 }

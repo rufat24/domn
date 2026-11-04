@@ -3,7 +3,7 @@ import { makeRng, tileName, maskToIds } from '../engine/tiles.js';
 import { el, tileById } from './tile.js';
 import { renderBoard } from './board.js';
 import { load, save } from './storage.js';
-import { SEAT_NAMES, genCount, genVoid, genRead, genFish, genScore, genBest } from '../ai/drillgen.js';
+import { SEAT_NAMES, LEVELS, LEVEL_NAMES, genCount, genVoid, genRead, genFish, genScore, genBest } from '../ai/drillgen.js';
 
 const SEAT_ACC = ['вас', 'соперника слева', 'партнёра', 'соперника справа'];
 const SEAT_AREA = ['me', 'left', 'top', 'right'];
@@ -67,6 +67,8 @@ const para = (...parts) => {
 };
 const seatBtn = (q) => ({ text: SEAT_NAMES[q], value: q });
 const key = (m) => m.id + ':' + m.side;
+// A level can occasionally be impossible to generate within the try budget: fall back to the normal one.
+const gen = (fn, rng, rules, level) => fn(rng, rules, level) || fn(rng, rules, 'medium') || fn(rng, rules);
 
 // ---------------------------------------------------------------- drill definitions
 // make(rng, rules) -> { node, choices:[{text|node, value}], answer, explain:Node|string, setup?(ctx), onFinish?(ok) }
@@ -75,8 +77,8 @@ const DRILLS = [
     id: 'count',
     title: 'Счёт чисел',
     desc: 'Сколько камней с данным числом ещё не видно? Это основа всего счёта.',
-    make(rng, rules) {
-      const q = genCount(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genCount, rng, rules, level);
       const node = el('div');
       node.append(para(`Сколько камней с числом ${q.n} сейчас у остальных троих (не на столе и не у вас)? Дубль ${q.n}-${q.n} считается один раз.`), desk(q.t));
       const ex = el('div');
@@ -93,8 +95,8 @@ const DRILLS = [
     id: 'void',
     title: 'Кто что не держит',
     desc: 'Пас = «у меня нет этого числа». Может ли у игрока быть такой камень?',
-    make(rng, rules) {
-      const q = genVoid(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genVoid, rng, rules, level);
       const node = el('div');
       node.append(para(`${SEAT_NAMES[q.q]} пасовал. Может ли у него ещё быть камень `, inlineTile(q.id), '? Рядом с игроками написано, на каких концах они пасовали.'), desk(q.t, { passes: true, focus: q.q }));
       const nums = q.voidNums.join(', ');
@@ -107,8 +109,8 @@ const DRILLS = [
     id: 'read',
     title: 'Вычислите руки',
     desc: 'Один неизвестный камень может лежать только у одного игрока. У кого?',
-    make(rng, rules) {
-      const q = genRead(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genRead, rng, rules, level);
       const node = el('div');
       node.append(para('Кто держит камень ', inlineTile(q.id), '? Он не на столе и не у вас. Вычислите по пасам.'), desk(q.t, { passes: true }));
       const reasons = q.why.map((w) => `${SEAT_NAMES[w.q]} не может (пасовал на ${w.nums.join(' и ')})`).join('; ');
@@ -119,8 +121,8 @@ const DRILLS = [
     id: 'fish',
     title: 'Рыба или выход?',
     desc: 'После вашего хода: игра закроется (рыба) или кто-то ещё сможет сыграть? Как друзья видят это заранее.',
-    make(rng, rules) {
-      const q = genFish(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genFish, rng, rules, level);
       const node = el('div');
       const side = q.t.ends[0] === q.t.ends[1] ? '' : q.move.side === 0 ? ' на левый конец' : ' на правый конец';
       node.append(para(`Концы стола: ${q.t.ends[0]} и ${q.t.ends[1]}. Вы кладёте `, inlineTile(q.move.id), `${side}. Что будет дальше: рыба (никто не сможет ходить) или игра продолжится?`), desk(q.t, { focus: 0 }));
@@ -139,8 +141,8 @@ const DRILLS = [
     id: 'score',
     title: 'Очки за рыбу',
     desc: 'Игра закрыта. Чья пара побеждает и сколько очков пишет?',
-    make(rng, rules) {
-      const q = genScore(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genScore, rng, rules, level);
       const r = q.result;
       const node = el('div');
       node.append(
@@ -171,8 +173,8 @@ const DRILLS = [
     id: 'best',
     title: 'Концовка: лучший ход',
     desc: 'Все руки открыты, камней осталось мало. Нажмите на камень, которым пошли бы. Точный перебор покажет лучший ход.',
-    make(rng, rules) {
-      const q = genBest(rng, rules);
+    make(rng, rules, level) {
+      const q = gen(genBest, rng, rules, level);
       const key = (m) => m.id + ':' + (q.ends[0] === q.ends[1] ? 0 : m.side);
       const legal = new Map();
       for (const v of q.vals) legal.set(v.move.id, [...(legal.get(v.move.id) || []), v.move]);
@@ -221,42 +223,42 @@ const DRILLS = [
 const QUIZ = [
   {
     q: 'Партнёр спасовал на 5. У вас есть равноценный выбор: оставить на конце 5 или 2 (партнёр на 2 не пасовал). Что лучше?',
-    a: ['Оставить 2', 'Оставить 5'], right: 0,
+    lv: 'easy', a: ['Оставить 2', 'Оставить 5'], right: 0,
     why: 'Пас на 5 значит, что у партнёра 5 нет. Конец 5 ему не поможет, а на 2 он, возможно, сможет сходить.',
   },
   {
     q: 'Соперник слева пасовал на 3. Вы можете положить 3 на конец. Что это даст?',
-    a: ['Он, скорее всего, снова пропустит ход', 'Он обязательно сходит', 'Ничего не меняется'], right: 0,
+    lv: 'easy', a: ['Он, скорее всего, снова пропустит ход', 'Он обязательно сходит', 'Ничего не меняется'], right: 0,
     why: 'Пока на конце 3, у него нет чем ходить на этот конец — он снова пасует (если второй конец ему тоже не подходит), и ход возвращается быстрее.',
   },
   {
     q: 'Оба соперника пасовали на 5, партнёр — нет. Какой конец выгодно оставить?',
-    a: ['Конец 5', 'Любой другой — разницы нет'], right: 0,
+    lv: 'medium', a: ['Конец 5', 'Любой другой — разницы нет'], right: 0,
     why: 'Соперники на конец 5 сходить не смогут, поэтому ходить будете вы и партнёр — темп ваш.',
   },
   {
     q: 'Какой камень опаснее всего остаться в руке при рыбе по правилам по умолчанию?',
-    a: ['6-6 (12 очков)', '0-0 (10 очков)', '6-5 (11 очков)'], right: 0,
+    lv: 'easy', a: ['6-6 (12 очков)', '0-0 (10 очков)', '6-5 (11 очков)'], right: 0,
     why: 'По умолчанию 6-6 стоит 12 очков, 6-5 — 11, 0-0 — 10. Проверьте в Настройках, как считают ваши друзья.',
   },
   {
     q: 'Все трое остальных пасовали и на 1, и на 4. Где могут быть оставшиеся камни с 1 и с 4?',
-    a: ['На столе или у вас в руке', 'У партнёра', 'У соперников'], right: 0,
+    lv: 'medium', a: ['На столе или у вас в руке', 'У партнёра', 'У соперников'], right: 0,
     why: 'Каждый, кто пасовал на число, держит ноль камней с ним. Значит все ещё не сыгранные камни с 1 и 4 — только у вас.',
   },
   {
     q: 'Когда рыба закрывает игру?',
-    a: ['Только если на обоих концах одно и то же число, и все 7 камней с ним уже сыграны', 'Если на столе разные концы и сыграно больше 20 камней', 'Когда у кого-то остался один камень'], right: 0,
+    lv: 'hard', a: ['Только если на обоих концах одно и то же число, и все 7 камней с ним уже сыграны', 'Если на столе разные концы и сыграно больше 20 камней', 'Когда у кого-то остался один камень'], right: 0,
     why: 'Если концы разные, то каждое из этих чисел встречается в цепочке нечётное число раз, а всего половинок с числом 8 — значит, камень с ним ещё остаётся у кого-то. Поэтому закрыть игру можно только одинаковыми концами. Закон проверен автотестом на тысячах случайных партий.',
   },
   {
     q: 'Можно ли подавать партнёру условные знаки (паузами, кашлем, интонацией)?',
-    a: ['Нет — только открытая информация: ходы, пасы, выбор начала', 'Да, если соперники не заметят'], right: 0,
+    lv: 'easy', a: ['Нет — только открытая информация: ходы, пасы, выбор начала', 'Да, если соперники не заметят'], right: 0,
     why: 'Это нечестно, и тренировать здесь нечего. Партнёр читает ваши ходы и пасы, вы — его; этого достаточно.',
   },
   {
     q: 'У вашей пары лёгкие руки, впереди возможна рыба. Как лучше играть?',
-    a: ['Помогать закрыть игру и не торопиться выходить', 'Бросаться тяжёлыми камнями', 'Не обращать внимания'], right: 0,
+    lv: 'hard', a: ['Помогать закрыть игру и не торопиться выходить', 'Бросаться тяжёлыми камнями', 'Не обращать внимания'], right: 0,
     why: 'Рыба выигрывается лёгкой рукой: меньше очков в сумме — вы побеждаете и пишете очки соперников.',
   },
 ];
@@ -264,19 +266,45 @@ const QUIZ = [
 // ---------------------------------------------------------------- runner
 export function mountDrills(root, settings) {
   const stats = load('drillstats', {});
+  let level = load('drilllevel', 'medium');
+  if (!LEVELS.includes(level)) level = 'medium';
+  const skey = (d) => `${d.id}:${level}`;
+  const LEVEL_HINT = { easy: 'Меньше камней на столе и очевидные случаи', medium: 'Обычные ситуации из партии', hard: 'Длинный стол, много пасов, близкие случаи' };
+  function levelPicker(onChange) {
+    const w = el('div', 'seg');
+    w.setAttribute('role', 'group');
+    w.setAttribute('aria-label', 'Уровень сложности');
+    for (const l of LEVELS) {
+      const b = el('button', 'segbtn' + (l === level ? ' on' : ''), LEVEL_NAMES[l]);
+      b.type = 'button';
+      b.title = LEVEL_HINT[l];
+      b.setAttribute('aria-pressed', l === level ? 'true' : 'false');
+      b.addEventListener('click', () => {
+        if (l === level) return;
+        level = l;
+        save('drilllevel', level);
+        onChange();
+      });
+      w.append(b);
+    }
+    return w;
+  }
   const rngObj = makeRng((Date.now() ^ 0x9e3779b9) >>> 0);
 
   function menu() {
     root.replaceChildren();
     root.append(el('h1', '', 'Тренировки'));
     root.append(el('p', 'dim', 'Ответы всегда считаются точно по правилам, а не «на глаз». Начните со «Счёта чисел» и каждый день делайте по 10 задач.'));
+    const lv = el('div', 'levelrow');
+    lv.append(el('b', '', 'Сложность:'), levelPicker(menu), el('span', 'dim', LEVEL_HINT[level]));
+    root.append(lv);
     const cards = el('div', 'cards');
     for (const d of DRILLS) {
       const b = el('button', 'card');
       b.type = 'button';
       b.append(el('h3', '', d.title), el('p', '', d.desc));
-      const st = stats[d.id];
-      b.append(el('p', 'dim', st ? `Всего верно: ${st.right} из ${st.total}` : 'Ещё не пробовали'));
+      const st = stats[skey(d)];
+      b.append(el('p', 'dim', st ? `${LEVEL_NAMES[level]}: верно ${st.right} из ${st.total}` : `${LEVEL_NAMES[level]}: ещё не пробовали`));
       b.addEventListener('click', () => run(d));
       cards.append(b);
     }
@@ -286,7 +314,11 @@ export function mountDrills(root, settings) {
   function run(d) {
     let done = 0;
     let right = 0;
-    let quizOrder = d.quiz ? QUIZ.map((_, i) => i).sort(() => rngObj() - 0.5) : null;
+    const quizPool = () => {
+      const want = { easy: ['easy'], medium: ['easy', 'medium'], hard: ['medium', 'hard'] }[level];
+      return QUIZ.map((q, i) => (want.includes(q.lv) ? i : -1)).filter((i) => i >= 0).sort(() => rngObj() - 0.5);
+    };
+    let quizOrder = d.quiz ? quizPool() : null;
     const rules = settings.get().rules;
     function next() {
       root.replaceChildren();
@@ -296,15 +328,19 @@ export function mountDrills(root, settings) {
       back.type = 'button';
       back.addEventListener('click', menu);
       top.append(back, el('span', 'dim', `${d.title} · верно ${right} из ${done}`));
+      top.append(levelPicker(() => { done = 0; right = 0; quizOrder = d.quiz ? quizPool() : null; next(); }));
       root.append(top);
+      if (done >= 10 && right / done >= 0.8 && level !== 'hard') {
+        root.append(el('p', 'tip', `Верно ${right} из ${done} — отлично! Попробуйте уровень «${LEVEL_NAMES[LEVELS[LEVELS.indexOf(level) + 1]]}».`));
+      }
       let item;
       if (d.quiz) {
-        if (!quizOrder.length) quizOrder = QUIZ.map((_, i) => i).sort(() => rngObj() - 0.5);
+        if (!quizOrder.length) quizOrder = quizPool();
         const qq = QUIZ[quizOrder.pop()];
         const order = qq.a.map((_, i) => i).sort(() => rngObj() - 0.5);
         item = { node: el('p', 'qtext', qq.q), choices: order.map((i) => ({ text: qq.a[i], value: i })), answer: qq.right, explain: qq.why };
       } else {
-        item = d.make(rngObj, rules);
+        item = d.make(rngObj, rules, level);
       }
       const box = el('div', 'drillbox');
       box.append(item.node);
@@ -334,7 +370,8 @@ export function mountDrills(root, settings) {
         const ok = value === item.answer;
         done++;
         if (ok) right++;
-        stats[d.id] = { right: (stats[d.id]?.right || 0) + (ok ? 1 : 0), total: (stats[d.id]?.total || 0) + 1 };
+        const k = skey(d);
+        stats[k] = { right: (stats[k]?.right || 0) + (ok ? 1 : 0), total: (stats[k]?.total || 0) + 1 };
         save('drillstats', stats);
         for (const x of btns) {
           x.b.disabled = true;
