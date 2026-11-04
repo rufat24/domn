@@ -38,9 +38,10 @@ function retry(maker, tries = 400) {
 /** Everything the UI needs to draw the table from seat 0's point of view. */
 function table(s) {
   return {
-    chain: s.chain.map((c) => ({ a: c.a, b: c.b })),
+    chain: s.chain.map((c) => ({ a: c.a, b: c.b, player: c.player })),
     ends: s.ends ? s.ends.slice() : null,
     hand: s.hands[0],
+    counts: s.hands.map((h) => popcount(h)),
     played: s.played,
     voids: s.voids.slice(),
     passes: s.log.filter((e) => e.type === 'pass').map((e) => ({ player: e.player, ends: e.ends })),
@@ -143,7 +144,7 @@ export function genScore(rng, rules) {
     let g = 0;
     while (!s.over && g++ < 80) applyMove(s, policyMove(s, s.turn, rng, 0.08));
     if (!s.over || s.result.kind !== 'fish') return null;
-    return { kind: 'score', hands: s.hands.slice(), ends: s.ends.slice(), chain: s.chain.map((c) => ({ a: c.a, b: c.b })), result: s.result, rules: s.rules };
+    return { kind: 'score', hands: s.hands.slice(), ends: s.ends.slice(), chain: s.chain.map((c) => ({ a: c.a, b: c.b, player: c.player })), result: s.result, rules: s.rules };
   }, 2000);
 }
 

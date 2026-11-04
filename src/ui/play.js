@@ -184,16 +184,13 @@ export function mountPlay(root, settings) {
     const h = $('seat0');
     h.replaceChildren();
     h.classList.toggle('turn', s.turn === 0 && !s.over);
-    const moves = s.turn === 0 && !s.over ? legalMoves(s, 0) : [];
-    const playable = new Set(moves.map((m) => m.id));
     const row = el('div', 'hand');
     for (const id of maskToIds(s.hands[0])) {
       const t = tileById(id, true, 'hand-tile');
-      if (s.turn === 0 && !s.over) t.classList.add(playable.has(id) ? 'playable' : 'blocked');
       if (G.pendingTile === id) t.classList.add('picked');
       if (G.hint && G.hint.id === id) t.classList.add('hint');
       t.setAttribute('role', 'button');
-      t.tabIndex = playable.has(id) ? 0 : -1;
+      t.tabIndex = 0;
       t.onclick = () => clickTile(id);
       t.onkeydown = (e) => (e.key === 'Enter' || e.key === ' ') && clickTile(id);
       row.append(t);

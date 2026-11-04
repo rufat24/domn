@@ -17,9 +17,18 @@ const HELPER_OPTS = [
 ];
 
 export function createSettings() {
-  const st = { ...DEFAULTS, ...load('settings', {}) };
+  const stored = load('settings', {});
+  const rv = stored.rv || 1;
+  // v2: the default value of 0-0 changed from 25 to 10; drop the old saved default so it does not stick.
+  if (rv < 2 && stored.rules && stored.rules.blankBlank === 25) delete stored.rules.blankBlank;
+  const st = { ...DEFAULTS, ...stored };
   st.rules = { ...DEFAULT_RULES, ...(st.rules || {}) };
-  const persist = () => save('settings', st);
+  // Save only the rules the player changed, so future default changes reach them.
+  const persist = () => {
+    const rules = {};
+    for (const k of Object.keys(st.rules)) if (st.rules[k] !== DEFAULT_RULES[k]) rules[k] = st.rules[k];
+    save('settings', { ...st, rules, rv: 2 });
+  };
   return {
     get: () => ({ rules: { ...st.rules }, level: st.level, speed: st.speed, helper: st.helper }),
     set(patch) {

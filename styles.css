@@ -61,11 +61,9 @@ main { max-width: 1100px; margin: 0 auto; padding: 12px 16px 40px; }
 .voidline { margin-top: 4px; font-size: .8rem; color: var(--warn); }
 .hand { --t: 44px; display: flex; flex-wrap: wrap; gap: 8px; justify-content: center; margin-top: 6px; }
 .hand-tile { cursor: pointer; transition: transform .12s; }
-.hand-tile.playable:hover { transform: translateY(-6px); }
-.hand-tile.blocked { opacity: .45; cursor: not-allowed; }
+.hand-tile:hover { transform: translateY(-6px); }
 .hand-tile.picked { transform: translateY(-10px); outline: 3px solid var(--accent); }
 .hand-tile.hint { outline: 3px dashed var(--c2); outline-offset: 2px; }
-.hand-tile.playable { box-shadow: 0 0 0 2px rgba(242,193,78,.55), 0 2px 4px rgba(0,0,0,.45); }
 
 .ends { display: flex; gap: 10px; align-items: center; justify-content: center; font-size: .9rem; color: var(--dim); }
 .endchip { background: var(--accent); color: #231a00; font-weight: 700; border-radius: 8px; min-width: 28px; text-align: center; padding: 1px 8px; }
@@ -115,15 +113,27 @@ input[type=checkbox] { width: 22px; height: 22px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
 .card:hover { border-color: var(--accent); } .card h3 { margin-top: 0; }
-.card.static { cursor: default; } .card.static:hover { border-color: var(--line); }
 .drillbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
-.mv { display: inline-flex; align-items: center; gap: 6px; } .mv .tile { --t: 28px; }
-.choice .drill-tiles { margin: 0; }
+/* drills: the same felt desk as the game */
+.drillbox .qtext { margin: 4px 0 8px; font-size: 1.02rem; }
+.desk { margin-top: 6px; }
+.desk .hand { --t: 38px; gap: 6px; }
+.desk .backs .tile.back { --t: 24px; }
+.desk .backs.open { --t: 22px; }
+.desk .backs.open .tile { --t: 22px; }
+.desk .board { min-height: 110px; }
+.desk .chain { --t: 24px; }
+.desk .voidline { background: rgba(0,0,0,.25); border-radius: 8px; padding: 1px 6px; margin-top: 4px; }
+.inl { display: inline-block; vertical-align: middle; margin: 0 4px; } .inl .tile { --t: 22px; }
+.drill-tiles .tile { --t: 24px; }
+.hand-tile.righttile { outline: 3px solid #5fd18b; } .hand-tile.wrongtile { outline: 3px solid var(--them); }
+.drillbox .choices { justify-content: center; }
+.drillbox .choice { min-width: 64px; font-size: 1.05rem; }
 .feedback { margin-top: 6px; }
 .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .choice { min-width: 56px; }
 .choice.right { background: #1d6b3d; border-color: #5fd18b; } .choice.wrong { background: #6b2a1d; border-color: var(--them); }
-.drill-tiles { --t: 34px; display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.drill-tiles { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
 .explain { border-left: 3px solid var(--accent); padding: 4px 10px; margin: 10px 0; color: var(--ink); background: rgba(0,0,0,.2); }
 .guide { max-width: 760px; margin: 0 auto; }
 .guide h2 { margin-top: 1.6em; border-bottom: 1px solid var(--line); padding-bottom: 4px; }
@@ -141,6 +151,10 @@ input[type=checkbox] { width: 22px; height: 22px; }
   .seat.left, .seat.right { align-self: start; }
   .backs { --t: 22px; }
   .chain { --t: 22px; }
+  .desk .chain { --t: 19px; }
+  .desk .hand { --t: 30px; gap: 4px; }
+  .desk .backs .tile.back, .desk .backs.open .tile { --t: 17px; }
+  .desk .seat { padding: 2px; }
   .hand { --t: 38px; gap: 6px; }
   .score b { font-size: 1.4rem; }
   .counters { gap: 3px; } .counter b { font-size: 1.05rem; }

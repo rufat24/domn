@@ -7,7 +7,7 @@ export const DEFAULT_RULES = {
   outScoring: 'opponents', // going out: winners write pips left in opponents' hands ('opponents' | 'all-others')
   fishScoring: 'opponents', // block: winning team writes pips of the opponents ('opponents' | 'all')
   fishTie: 'none', // lowest hand tied between teams: nobody scores
-  blankBlank: 25, // value of the 0-0 tile when counting pips left in hands
+  blankBlank: 10, // value of the 0-0 tile when counting pips left in hands
   sixSix: 12, // value of the 6-6 tile (some play 50)
   roundTo5: false, // round every hand score to the nearest 5
   outBonus00: 0, // extra points for going out with 0-0 as the last tile
