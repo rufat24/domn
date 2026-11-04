@@ -153,35 +153,31 @@ function roundScore(p, rules) {
   return rules.roundTo5 ? Math.round(p / 5) * 5 : p;
 }
 
-function finish(s, kind, seat) {
-  s.over = true;
-  const rules = s.rules;
-  const hp = s.hands.map((h) => handPips(h, rules));
-  if (kind === 'out') {
-    const team = teamOf(seat);
-    let pts = hp[(seat + 1) & 3] + hp[(seat + 3) & 3];
-    if (rules.outScoring === 'all-others') pts += hp[(seat + 2) & 3];
-    if (s.lastTile === ID_OF[0][0]) pts += rules.outBonus00;
-    s.result = { kind, winner: seat, team, points: roundScore(pts, rules), pips: hp };
-    s.turn = -1;
-    return s;
-  }
-  // fish
+/** Pure scoring helpers (shared with the exact solver). */
+export function resolveOut(hands, seat, lastTile, rules) {
+  const hp = hands.map((h) => handPips(h, rules));
+  let pts = hp[(seat + 1) & 3] + hp[(seat + 3) & 3];
+  if (rules.outScoring === 'all-others') pts += hp[(seat + 2) & 3];
+  if (lastTile === ID_OF[0][0]) pts += rules.outBonus00;
+  return { kind: 'out', winner: seat, team: teamOf(seat), points: roundScore(pts, rules), pips: hp };
+}
+
+export function resolveFish(hands, rules) {
+  const hp = hands.map((h) => handPips(h, rules));
   let min = Infinity;
   for (const v of hp) if (v < min) min = v;
   const seats = [0, 1, 2, 3].filter((i) => hp[i] === min);
   const teams = new Set(seats.map(teamOf));
-  if (teams.size > 1) {
-    s.result = { kind: 'fish', winner: -1, team: -1, points: 0, pips: hp, tie: true };
-  } else {
-    const team = [...teams][0];
-    const w = seats[0];
-    let pts =
-      rules.fishScoring === 'all'
-        ? hp[0] + hp[1] + hp[2] + hp[3]
-        : hp[(w + 1) & 3] + hp[(w + 3) & 3];
-    s.result = { kind: 'fish', winner: w, team, points: roundScore(pts, rules), pips: hp };
-  }
+  if (teams.size > 1) return { kind: 'fish', winner: -1, team: -1, points: 0, pips: hp, tie: true };
+  const team = [...teams][0];
+  const w = seats[0];
+  const pts = rules.fishScoring === 'all' ? hp[0] + hp[1] + hp[2] + hp[3] : hp[(w + 1) & 3] + hp[(w + 3) & 3];
+  return { kind: 'fish', winner: w, team, points: roundScore(pts, rules), pips: hp };
+}
+
+function finish(s, kind, seat) {
+  s.over = true;
+  s.result = kind === 'out' ? resolveOut(s.hands, seat, s.lastTile, s.rules) : resolveFish(s.hands, s.rules);
   s.turn = -1;
   return s;
 }

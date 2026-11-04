@@ -1,7 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { makeRng, popcount, TILES, ALL } from '../src/engine/tiles.js';
-import { deal, newHand, legalMoves, applyMove, createMatch, dealHand, finishHand, teamOf } from '../src/engine/game.js';
+import { deal, newHand, legalMoves, applyMove, createMatch, dealHand, finishHand, teamOf, resolveFish } from '../src/engine/game.js';
+import { mergeRules } from '../src/engine/rules.js';
 import { ID_OF } from '../src/engine/tiles.js';
 
 test('28 tiles, each number on 7 tiles, popcount', () => {
@@ -83,10 +84,10 @@ test('fish: blocked position, lowest hand wins', () => {
 });
 
 test('fish tie across teams scores nothing', () => {
-  const s = newHand({}, [0, 0, 0, 0], 0);
-  s.hands = [(1 << ID_OF[0][5]) | (1 << ID_OF[3][4]), 1 << ID_OF[1][4], 1 << ID_OF[6][6], 1 << ID_OF[2][2]];
-  s.ends = [3, 3];
-  s.turn = 0;
-  applyMove(s, { id: ID_OF[3][4], side: 0 }); // seat1 holds 1-4 -> can play on 4 -> not a fish
-  assert.equal(s.over, false);
+  // seat0 (team 0) and seat1 (team 1) both hold 5 pips -> tie between teams
+  const hands = [1 << ID_OF[2][3], 1 << ID_OF[1][4], 1 << ID_OF[6][6], 1 << ID_OF[5][5]];
+  const r = resolveFish(hands, mergeRules({}));
+  assert.equal(r.tie, true);
+  assert.equal(r.team, -1);
+  assert.equal(r.points, 0);
 });
