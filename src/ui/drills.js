@@ -120,7 +120,8 @@ const DRILLS = [
       const lab = (team, pts) => (team < 0 ? 'Ничья, никто не пишет' : `${team === 0 ? 'Наша пара' : 'Соперники'} пишут ${pts}`);
       const correct = lab(r.team, r.points);
       const opts = new Map([[correct, true]]);
-      const sum = (...i) => i.reduce((x, k) => x + r.pips[k], 0);
+      const rnd = (v) => (rules.roundTo5 ? Math.round(v / 5) * 5 : v);
+      const sum = (...i) => rnd(i.reduce((x, k) => x + r.pips[k], 0));
       const w = r.team < 0 ? 0 : r.team;
       const labels = [correct, lab(1 - w, sum(1 - w, 1 - w + 2)), lab(w, sum(0, 1, 2, 3)), lab(w, sum(w, w + 2)), lab(1 - w, sum(w, w + 2))];
       const list = [...new Set(labels)].slice(0, 4);
@@ -132,7 +133,7 @@ const DRILLS = [
         el('p', '', `Очки в руках: вы ${hp[0]}, слева ${hp[1]}, партнёр ${hp[2]}, справа ${hp[3]} (0-0 считается ${q.rules.blankBlank}, 6-6 — ${q.rules.sixSix}).`),
         el('p', '', r.team < 0
           ? 'Самые лёгкие руки у обеих пар поровну — по умолчанию в такой ничьей никто не пишет.'
-          : `Меньшая рука — у ${SEAT_NAMES[r.winner]}, пишет ${r.team === 0 ? 'наша пара' : 'пара соперников'}. ${q.rules.fishScoring === 'all' ? 'Очки всех четырёх рук.' : 'Очки двух рук противника.'}`),
+          : `Самая лёгкая рука — у ${SEAT_ACC[r.winner]}, пишет ${r.team === 0 ? 'наша пара' : 'пара соперников'}. ${q.rules.fishScoring === 'all' ? 'Очки всех четырёх рук.' : 'Очки двух рук противника.'}`),
       );
       return { node, choices: list.map((t) => ({ text: t, value: t })), answer: correct, explain: ex };
     },
@@ -201,7 +202,7 @@ const QUIZ = [
   {
     q: 'Когда рыба закрывает игру?',
     a: ['Только если на обоих концах одно и то же число, и все 7 камней с ним уже сыграны', 'Если на столе разные концы и сыграно больше 20 камней', 'Когда у кого-то остался один камень'], right: 0,
-    why: 'Число на конце встречается нечётное число раз среди сыгранных половинок, а всего половинок 8, поэтому один камень с ним всегда остаётся — и значит оба конца должны совпадать. Закон проверен на 20 000 партий.',
+    why: 'Если концы разные, то каждое из этих чисел встречается в цепочке нечётное число раз, а всего половинок с числом 8 — значит, камень с ним ещё остаётся у кого-то. Поэтому закрыть игру можно только одинаковыми концами. Закон проверен автотестом на тысячах случайных партий.',
   },
   {
     q: 'Можно ли подавать партнёру условные знаки (паузами, кашлем, интонацией)?',
@@ -245,6 +246,7 @@ export function mountDrills(root, settings) {
     const rules = settings.get().rules;
     function next() {
       root.replaceChildren();
+      window.scrollTo(0, 0);
       const top = el('div', 'drillbar');
       const back = el('button', 'btn ghostbtn', '← Все тренировки');
       back.type = 'button';
