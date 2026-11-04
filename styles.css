@@ -115,6 +115,11 @@ input[type=checkbox] { width: 22px; height: 22px; }
 .cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 10px; }
 .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 12px 14px; cursor: pointer; text-align: left; color: inherit; font: inherit; }
 .card:hover { border-color: var(--accent); } .card h3 { margin-top: 0; }
+.card.static { cursor: default; } .card.static:hover { border-color: var(--line); }
+.drillbar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 10px; }
+.mv { display: inline-flex; align-items: center; gap: 6px; } .mv .tile { --t: 28px; }
+.choice .drill-tiles { margin: 0; }
+.feedback { margin-top: 6px; }
 .choices { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0; }
 .choice { min-width: 56px; }
 .choice.right { background: #1d6b3d; border-color: #5fd18b; } .choice.wrong { background: #6b2a1d; border-color: var(--them); }
