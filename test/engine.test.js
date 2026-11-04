@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { makeRng, popcount, TILES, ALL } from '../src/engine/tiles.js';
+import { makeRng, popcount, TILES, ALL, HAS } from '../src/engine/tiles.js';
 import { deal, newHand, legalMoves, applyMove, createMatch, dealHand, finishHand, teamOf, resolveFish } from '../src/engine/game.js';
 import { mergeRules } from '../src/engine/rules.js';
 import { ID_OF } from '../src/engine/tiles.js';
@@ -90,4 +90,21 @@ test('fish tie across teams scores nothing', () => {
   assert.equal(r.tie, true);
   assert.equal(r.team, -1);
   assert.equal(r.points, 0);
+});
+
+test('theorem: a fish only happens with the same number on both ends and all 7 tiles of it played', () => {
+  const rng = makeRng(5);
+  let fish = 0;
+  for (let g = 0; g < 3000; g++) {
+    const s = newHand({}, deal(rng), rng.int(4));
+    while (!s.over) {
+      const mv = legalMoves(s);
+      applyMove(s, mv[rng.int(mv.length)]);
+    }
+    if (s.result.kind !== 'fish') continue;
+    fish++;
+    assert.equal(s.ends[0], s.ends[1]);
+    assert.equal(popcount(HAS[s.ends[0]] & s.played), 7);
+  }
+  assert.ok(fish > 100);
 });
