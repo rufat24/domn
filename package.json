@@ -1,0 +1,13 @@
+{
+  "name": "domino-101-academy",
+  "version": "1.0.0",
+  "description": "Домино 101 (2×2): умные соперники, тренажёры подсчёта камней и учебник стратегий",
+  "type": "module",
+  "scripts": {
+    "start": "node scripts/serve.mjs",
+    "test": "node --test test/*.test.js",
+    "bench": "node scripts/benchmark.mjs",
+    "puzzles": "node scripts/genPuzzles.mjs"
+  },
+  "license": "MIT"
+}
